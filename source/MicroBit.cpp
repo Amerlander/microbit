@@ -28,7 +28,6 @@ Modifications are provided by DELTA Systems (Georg Sommer) - Thomas Kern
 und Björn Eberhardt GbR by arrangement with Calliope GbR.
 */
 
-#include <pinmap.h>
 #include "MicroBitConfig.h"
 /*
  * The underlying Nordic libraries that support BLE do not compile cleanly with the stringent GCC settings we employ
@@ -66,7 +65,9 @@ RawSerial* SERIAL_DEBUG = NULL;
   */
 MicroBit::MicroBit() :
     serial(USBTX, USBRX),
+#ifndef TARGET_NRF51_CALLIOPE
 	resetButton(MICROBIT_PIN_BUTTON_RESET),
+#endif
     storage(),
     i2c(I2C_SDA0, I2C_SCL0),
     messageBus(),
@@ -99,9 +100,12 @@ MicroBit::MicroBit() :
     // Clear our status
     status = 0;
 
+// there is no soft reset pin available on the Callipo mini, it is resetted via the KL26z SWD
+#ifndef TARGET_NRF51_CALLIOPE
     // Bring up soft reset functionality as soon as possible.
     resetButton.mode(PullUp);
     resetButton.fall(this, &MicroBit::reset);
+#endif
 }
 
 /**
@@ -123,14 +127,6 @@ void MicroBit::init()
 {
     if (status & MICROBIT_INITIALIZED)
         return;
-
-    // configure the accelerometer
-    accelerometer.configure();
-
-#if CONFIG_ENABLED(MICROBIT_HEAP_ALLOCATOR)
-    // Bring up a nested heap allocator.
-    microbit_create_nested_heap(MICROBIT_NESTED_HEAP_SIZE);
-#endif
 
     // Bring up fiber scheduler.
     scheduler_init(messageBus);
@@ -236,7 +232,6 @@ void MicroBit::onListenerRegisteredEvent(MicroBitEvent evt)
         case MICROBIT_ID_COMPASS:
             // A listener has been registered for the compass.
             // The compass uses lazy instantiation, we just need to read the data once to start it running.
-            // Touch the compass through the heading() function to ensure it is calibrated. if it isn't this will launch any associated calibration algorithms.
             compass.getSample();
 
             break;
